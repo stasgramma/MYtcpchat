@@ -9,16 +9,20 @@ import (
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
+	for {
+		reader := bufio.NewReader(conn)
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Клиент отключился")
+			conn.Close()
 
-	reader := bufio.NewReader(conn)
-	msg, _ := reader.ReadString('\n')
+		}
+		fmt.Printf("%s Client message: %s", time.Now().Format("15:04"), msg)
+		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
-	fmt.Printf("%s Client message: %s", time.Now().Format("15:04"), msg)
-	fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
-
-	conn.Write([]byte(msg + " from server\n"))
+		conn.Write([]byte(msg + " from server\n"))
+	}
 }
-
 func main() {
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
