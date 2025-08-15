@@ -16,10 +16,21 @@ func main() {
 		return
 	}
 	fmt.Println("Connected!")
-
 	defer conn.Close()
+	go func() {
+		serverReader := bufio.NewReader(conn)
+		for {
+			msg, err := serverReader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			fmt.Printf("%s\n", msg)
+		}
+	}()
+
 	for {
 		reader := bufio.NewReader(os.Stdin)
+
 		fmt.Print("Введите сообщение: ")
 		msg, _ := reader.ReadString('\n')
 		if msg == "exit\n" || msg == "exit \n" {
@@ -33,5 +44,6 @@ func main() {
 		serverReader := bufio.NewReader(conn)
 		response, _ := serverReader.ReadString('\n')
 		fmt.Printf("Received message: %s", response)
+
 	}
 }
