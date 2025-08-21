@@ -46,9 +46,11 @@ func handleConnection(conn net.Conn) {
 		for _, bytee := range msg {
 			totalb += utf8.RuneLen(bytee)
 		}
+		words := strings.Fields(msg)
 
 		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
 		fmt.Printf("Total bytes : %v\n ", totalb)
+		fmt.Printf("Worlds quantity on message: %v\n ", len(words))
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
 		conn.Write([]byte(msg + " from server\n"))
