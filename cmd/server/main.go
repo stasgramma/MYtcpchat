@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var All []Mape
@@ -35,14 +36,19 @@ func handleConnection(conn net.Conn) {
 			conn.Close()
 			break
 		}
-
 		All = append(All, Mape{
 			Time: time.Now().Format("15:04:05"),
 			Ip:   conn.RemoteAddr().String(),
 			Sms:  msg,
 		})
 
+		totalb := 0
+		for _, bytee := range msg {
+			totalb += utf8.RuneLen(bytee)
+		}
+
 		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
+		fmt.Printf("Total bytes : %v\n ", totalb)
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
 		conn.Write([]byte(msg + " from server\n"))
