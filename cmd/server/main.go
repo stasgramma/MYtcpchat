@@ -4,33 +4,43 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
-var All = map[string]string{}
+var All []Mape
+
+type Mape struct {
+	Time string
+	Sms  string
+}
 
 func sendAllMessages(conn net.Conn) {
 	for _, msg := range All {
-		conn.Write([]byte(msg + "\n"))
+		conn.Write([]byte(fmt.Sprintf("[%s] %s\n", msg.Time, msg.Sms)))
 	}
 }
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	for {
+		sendAllMessages(conn)
 
 		reader := bufio.NewReader(conn)
 		msg, err := reader.ReadString('\n')
-
+		msg = strings.TrimSpace(msg)
 		if err != nil {
 			fmt.Printf("Клиент отключился")
 			conn.Close()
 			break
 		}
 
-		All[time.Now().Format("15:04:05")] = msg
+		All = append(All, Mape{
+			Time: time.Now().Format("15:04:05"),
+			Sms:  msg,
+		})
 
-		fmt.Printf("%s Client message: %s", time.Now().Format("15:04"), msg)
+		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
 		conn.Write([]byte(msg + " from server\n"))
@@ -51,7 +61,6 @@ func main() {
 			fmt.Println("Ошибка подключения:", err)
 			continue
 		}
-		go sendAllMessages(conn)
 
 		fmt.Printf("%s Client connected from %s\n", time.Now().Format("15:04"), conn.RemoteAddr().String())
 		go handleConnection(conn)

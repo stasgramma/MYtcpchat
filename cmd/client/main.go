@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -21,29 +24,29 @@ func main() {
 		serverReader := bufio.NewReader(conn)
 		for {
 			msg, err := serverReader.ReadString('\n')
+			msg = strings.TrimSpace(msg)
 			if err != nil {
+				log.Printf("err = %v\n", err)
 				return
 			}
-			fmt.Printf("%s\n", msg)
+			fmt.Printf("Reseave message %s\n", msg)
 		}
 	}()
-
+	reader := bufio.NewReader(os.Stdin)
 	for {
-		reader := bufio.NewReader(os.Stdin)
+		time.Sleep(1 * time.Second)
 
 		fmt.Print("Введите сообщение: ")
-		msg, _ := reader.ReadString('\n')
-		if msg == "exit\n" || msg == "exit \n" {
+		rawmsg, _ := reader.ReadString('\n')
+		msg := strings.TrimSpace(rawmsg)
+
+		if msg == "exit" {
 			fmt.Printf("Подключение прервано\n")
 			conn.Close()
 			break
 		}
-		fmt.Printf("Send message: %s", msg)
+		fmt.Printf("Send message: %s\n", msg)
 
-		conn.Write([]byte(msg))
-		serverReader := bufio.NewReader(conn)
-		response, _ := serverReader.ReadString('\n')
-		fmt.Printf("Received message: %s", response)
-
+		conn.Write([]byte(rawmsg))
 	}
 }
