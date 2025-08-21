@@ -12,12 +12,13 @@ var All []Mape
 
 type Mape struct {
 	Time string
+	Ip   string
 	Sms  string
 }
 
 func sendAllMessages(conn net.Conn) {
 	for _, msg := range All {
-		conn.Write([]byte(fmt.Sprintf("[%s] %s\n", msg.Time, msg.Sms)))
+		conn.Write([]byte(fmt.Sprintf("[%s]  %s  %s\n", msg.Time, msg.Ip, msg.Sms)))
 	}
 }
 
@@ -37,6 +38,7 @@ func handleConnection(conn net.Conn) {
 
 		All = append(All, Mape{
 			Time: time.Now().Format("15:04:05"),
+			Ip:   conn.RemoteAddr().String(),
 			Sms:  msg,
 		})
 
