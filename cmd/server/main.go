@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -51,6 +52,32 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
 		fmt.Printf("Total bytes : %v\n ", totalb)
 		fmt.Printf("Worlds quantity on message: %v\n ", len(words))
+		if words[0] == "add" && len(words) >= 3 {
+			a, err := strconv.Atoi(words[1])
+			b, err := strconv.Atoi(words[2])
+			if err != nil {
+				fmt.Printf("Ошибка при вводе числа\n")
+			} else {
+
+				sum := a + b
+				fmt.Printf("Command add : %d\n", sum)
+			}
+		}
+		if words[0] == "echo" {
+			result := strings.Join(words[1:], " ")
+			fmt.Printf("Command echo : %s\n", result)
+		}
+		if words[0] == "mul" {
+			a, err := strconv.Atoi(words[1])
+			b, err := strconv.Atoi(words[2])
+			if err != nil {
+				fmt.Printf("Ошибка при вводе числа\n")
+			} else {
+				sum := a * b
+				fmt.Printf("Command mul: %d\n", sum)
+			}
+		}
+
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
 		conn.Write([]byte(msg + " from server\n"))
