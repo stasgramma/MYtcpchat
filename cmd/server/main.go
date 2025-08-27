@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"net"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 var All []Mape
 
 type Mape struct {
+	Id   uint `gorm:"primaryKey"`
 	Time string
 	Ip   string
 	Sms  string
@@ -22,6 +25,22 @@ func sendAllMessages(conn net.Conn) {
 	for _, msg := range All {
 		conn.Write([]byte(fmt.Sprintf("[%s]  %s  %s\n", msg.Time, msg.Ip, msg.Sms)))
 	}
+}
+
+var db *gorm.DB
+
+func initDB() {
+	var err error
+	db, err = gorm.Open(sqlite.Open("chat.db"), &gorm.Config{})
+	if err != nil {
+		panic("Не удалось подключиться к базе")
+	}
+
+	db.AutoMigrate(&Mape{})
+
+	var messages []Mape
+	db.Find(&messages)
+	All = messages
 }
 
 func handleConnection(conn net.Conn) {
@@ -37,11 +56,14 @@ func handleConnection(conn net.Conn) {
 			conn.Close()
 			break
 		}
-		All = append(All, Mape{
+		msgObj := Mape{
 			Time: time.Now().Format("15:04:05"),
 			Ip:   conn.RemoteAddr().String(),
 			Sms:  msg,
-		})
+		}
+		All = append(All, msgObj)
+
+		db.Create(&msgObj)
 
 		totalb := 0
 		for _, bytee := range msg {
@@ -85,6 +107,7 @@ func handleConnection(conn net.Conn) {
 
 }
 func main() {
+	initDB()
 	listener, err := net.Listen("tcp", ":3000")
 	if err != nil {
 		fmt.Println("Ошибка запуска сервера:", err)
