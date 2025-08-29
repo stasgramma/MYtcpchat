@@ -15,11 +15,11 @@ import (
 var All []Mape
 
 type Mape struct {
+	User string
 	Id   uint `gorm:"primaryKey"`
 	Time string
 	Ip   string
 	Sms  string
-	User string
 }
 
 func sendAllMessages(conn net.Conn) {
@@ -60,9 +60,22 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 		if strings.HasPrefix(msg, "NAME:") {
-			username = strings.TrimSpace(strings.TrimPrefix(msg, "NAME:"))
-			fmt.Printf("Клиент %s установил имя: %s\n", conn.RemoteAddr().String(), username)
-			continue
+			proposedName := strings.TrimSpace(strings.TrimPrefix(msg, "NAME:"))
+
+			nameExists := false
+			for _, m := range All {
+				if m.User == proposedName {
+					nameExists = true
+					break
+				}
+			}
+
+			if nameExists {
+				conn.Write([]byte("Это имя уже занято, выберите другое\n"))
+				continue
+			}
+
+			username = proposedName
 		}
 
 		msgObj := Mape{
