@@ -3,13 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 var All []Mape
@@ -46,6 +47,8 @@ func initDB() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
+	var currentUser string
+
 	reader := bufio.NewReader(conn)
 	var username string
 	sendAllMessages(conn)
@@ -98,7 +101,6 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
 		fmt.Printf("Total bytes : %v\n ", totalb)
 		fmt.Printf("Worlds quantity on message: %v\n ", len(words))
-
 		switch words[0] {
 		case "echo":
 			result := strings.Join(words[1:], " ")
@@ -116,7 +118,42 @@ func handleConnection(conn net.Conn) {
 			sum := a + b
 			conn.Write([]byte(fmt.Sprintf("%d\n", sum)))
 
+		case "setname":
+
+			fullperson := words[1]
+			sqlStmt := fmt.Sprintf(`
+    CREATE TABLE IF NOT EXISTS %s (
+        message TEXT
+    );`, fullperson)
+
+			if err := db.Exec(sqlStmt).Error; err != nil {
+				fmt.Println("Ошибка создания таблицы:", err)
+			} else {
+				fmt.Println("Таблица создана для сообщений:", fullperson)
+			}
+			currentUser = fullperson
+		case "connect":
+			fullperson := words[1]
+
+			var tableName string
+			checkStmt := fmt.Sprintf(`SELECT name FROM sqlite_master WHERE type='table' AND name='%s';`, fullperson)
+			db.Raw(checkStmt).Scan(&tableName)
+
+			if tableName == "" {
+				conn.Write([]byte("Пользователь не найден. Сначала создайте через setname\n"))
+			} else {
+				currentUser = fullperson
+				conn.Write([]byte("Вы подключились как " + currentUser + "\n"))
+			}
+
 		default:
+
+			if currentUser == "" {
+			} else {
+				insertStmt := fmt.Sprintf("INSERT INTO %s (message) VALUES (?)", currentUser)
+				db.Exec(insertStmt, msg)
+				conn.Write([]byte("Сообщение сохранено\n"))
+			}
 			conn.Write([]byte(msg + " from server\n"))
 
 		}
