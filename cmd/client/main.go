@@ -32,9 +32,17 @@ func main() {
 			fmt.Printf("Reseave message %s\n", msg)
 		}
 	}()
+	time.Sleep(200 * time.Millisecond)
+
+	fmt.Print("Введите ваше имя: ")
+	nameReader := bufio.NewReader(os.Stdin)
+	name, _ := nameReader.ReadString('\n')
+	name = strings.TrimSpace(name)
 	reader := bufio.NewReader(os.Stdin)
+
+	conn.Write([]byte("NAME:" + name + "\n"))
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 
 		fmt.Print("Введите сообщение: ")
 		rawmsg, _ := reader.ReadString('\n')

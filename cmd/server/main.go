@@ -19,11 +19,12 @@ type Mape struct {
 	Time string
 	Ip   string
 	Sms  string
+	User string
 }
 
 func sendAllMessages(conn net.Conn) {
 	for _, msg := range All {
-		conn.Write([]byte(fmt.Sprintf("[%s]  %s  %s\n", msg.Time, msg.Ip, msg.Sms)))
+		conn.Write([]byte(fmt.Sprintf(" %s  : [%s]  %s  %s\n", msg.User, msg.Time, msg.Ip, msg.Sms)))
 	}
 }
 
@@ -45,10 +46,12 @@ func initDB() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	for {
-		sendAllMessages(conn)
+	reader := bufio.NewReader(conn)
+	var username string
+	sendAllMessages(conn)
 
-		reader := bufio.NewReader(conn)
+	for {
+
 		msg, err := reader.ReadString('\n')
 		msg = strings.TrimSpace(msg)
 		if err != nil {
@@ -56,7 +59,15 @@ func handleConnection(conn net.Conn) {
 			conn.Close()
 			break
 		}
+		if strings.HasPrefix(msg, "NAME:") {
+			username = strings.TrimSpace(strings.TrimPrefix(msg, "NAME:"))
+			fmt.Printf("Клиент %s установил имя: %s\n", conn.RemoteAddr().String(), username)
+			continue
+		}
+
 		msgObj := Mape{
+			User: username,
+
 			Time: time.Now().Format("15:04:05"),
 			Ip:   conn.RemoteAddr().String(),
 			Sms:  msg,
@@ -74,38 +85,34 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("%s Client message: %s\n", time.Now().Format("15:04"), msg)
 		fmt.Printf("Total bytes : %v\n ", totalb)
 		fmt.Printf("Worlds quantity on message: %v\n ", len(words))
-		if words[0] == "add" && len(words) >= 3 {
-			a, err := strconv.Atoi(words[1])
-			b, err := strconv.Atoi(words[2])
-			if err != nil {
-				fmt.Printf("Ошибка при вводе числа\n")
-			} else {
 
-				sum := a + b
-				fmt.Printf("Command add : %d\n", sum)
-			}
-		}
-		if words[0] == "echo" {
+		switch words[0] {
+		case "echo":
 			result := strings.Join(words[1:], " ")
-			fmt.Printf("Command echo : %s\n", result)
-		}
-		if words[0] == "mul" {
-			a, err := strconv.Atoi(words[1])
-			b, err := strconv.Atoi(words[2])
-			if err != nil {
-				fmt.Printf("Ошибка при вводе числа\n")
-			} else {
-				sum := a * b
-				fmt.Printf("Command mul: %d\n", sum)
-			}
+			conn.Write([]byte(result + "\n"))
+
+		case "mul":
+			a, _ := strconv.Atoi(words[1])
+			b, _ := strconv.Atoi(words[2])
+			sum := a * b
+			conn.Write([]byte(fmt.Sprintf("%d\n", sum)))
+
+		case "sum":
+			a, _ := strconv.Atoi(words[1])
+			b, _ := strconv.Atoi(words[2])
+			sum := a + b
+			conn.Write([]byte(fmt.Sprintf("%d\n", sum)))
+
+		default:
+			conn.Write([]byte(msg + " from server\n"))
+
 		}
 
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
 
-		conn.Write([]byte(msg + " from server\n"))
 	}
-
 }
+
 func main() {
 	initDB()
 	listener, err := net.Listen("tcp", ":3000")
