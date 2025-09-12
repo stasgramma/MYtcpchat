@@ -13,19 +13,29 @@ import (
 	"gorm.io/gorm"
 )
 
-var All []Mape
+type User struct {
+	ID       uint   `gorm:"primaryKey"`
+	Username string `gorm:"uniqueIndex"`
+	Messages []Message
+}
 
-type Mape struct {
-	User string
-	Id   uint `gorm:"primaryKey"`
-	Time string
-	Ip   string
-	Sms  string
+type Message struct {
+	ID     uint `gorm:"primaryKey"`
+	Text   string
+	Time   string
+	Ip     string
+	UserID uint
 }
 
 func sendAllMessages(conn net.Conn) {
-	for _, msg := range All {
-		conn.Write([]byte(fmt.Sprintf(" %s  : [%s]  %s  %s\n", msg.User, msg.Time, msg.Ip, msg.Sms)))
+	var messages []Message
+	db.Preload("User").Find(&messages)
+
+	for _, msg := range messages {
+		var user User
+		db.First(&user, msg.UserID)
+		conn.Write([]byte(fmt.Sprintf(" %s : [%s] %s %s\n",
+			user.Username, msg.Time, msg.Ip, msg.Text)))
 	}
 }
 
@@ -38,11 +48,7 @@ func initDB() {
 		panic("Не удалось подключиться к базе")
 	}
 
-	db.AutoMigrate(&Mape{})
-
-	var messages []Mape
-	db.Find(&messages)
-	All = messages
+	db.AutoMigrate(&User{}, &Message{})
 }
 
 func handleConnection(conn net.Conn) {
@@ -65,32 +71,15 @@ func handleConnection(conn net.Conn) {
 		if strings.HasPrefix(msg, "NAME:") {
 			proposedName := strings.TrimSpace(strings.TrimPrefix(msg, "NAME:"))
 
-			nameExists := false
-			for _, m := range All {
-				if m.User == proposedName {
-					nameExists = true
-					break
-				}
-			}
-
-			if nameExists {
+			var existing User
+			if err := db.Where("username = ?", proposedName).First(&existing).Error; err == nil {
 				conn.Write([]byte("Это имя уже занято, выберите другое\n"))
 				continue
 			}
 
 			username = proposedName
+			conn.Write([]byte("Имя установлено: " + username + "\n"))
 		}
-
-		msgObj := Mape{
-			User: username,
-
-			Time: time.Now().Format("15:04:05"),
-			Ip:   conn.RemoteAddr().String(),
-			Sms:  msg,
-		}
-		All = append(All, msgObj)
-
-		db.Create(&msgObj)
 
 		totalb := 0
 		for _, bytee := range msg {
@@ -119,43 +108,45 @@ func handleConnection(conn net.Conn) {
 			conn.Write([]byte(fmt.Sprintf("%d\n", sum)))
 
 		case "setname":
+			username := words[1]
 
-			fullperson := words[1]
-			sqlStmt := fmt.Sprintf(`
-    CREATE TABLE IF NOT EXISTS %s (
-        message TEXT
-    );`, fullperson)
-
-			if err := db.Exec(sqlStmt).Error; err != nil {
-				fmt.Println("Ошибка создания таблицы:", err)
-			} else {
-				fmt.Println("Таблица создана для сообщений:", fullperson)
+			var existing User
+			if err := db.Where("username = ?", username).First(&existing).Error; err == nil {
+				conn.Write([]byte("Пользователь уже существует\n"))
+				return
 			}
-			currentUser = fullperson
+
+			newUser := User{Username: username}
+			db.Create(&newUser)
+			currentUser = username
+			conn.Write([]byte("Создан новый пользователь: " + username + "\n"))
+
 		case "connect":
-			fullperson := words[1]
+			username := words[1]
 
-			var tableName string
-			checkStmt := fmt.Sprintf(`SELECT name FROM sqlite_master WHERE type='table' AND name='%s';`, fullperson)
-			db.Raw(checkStmt).Scan(&tableName)
-
-			if tableName == "" {
+			var user User
+			if err := db.Where("username = ?", username).First(&user).Error; err != nil {
 				conn.Write([]byte("Пользователь не найден. Сначала создайте через setname\n"))
 			} else {
-				currentUser = fullperson
-				conn.Write([]byte("Вы подключились как " + currentUser + "\n"))
+				currentUser = username
+				conn.Write([]byte("Вы подключились как " + username + "\n"))
 			}
 
 		default:
-
-			if currentUser == "" {
-			} else {
-				insertStmt := fmt.Sprintf("INSERT INTO %s (message) VALUES (?)", currentUser)
-				db.Exec(insertStmt, msg)
-				conn.Write([]byte("Сообщение сохранено\n"))
+			if currentUser != "" {
+				var user User
+				if err := db.Where("username = ?", currentUser).First(&user).Error; err == nil {
+					msgObj := Message{
+						Text:   msg,
+						Time:   time.Now().Format("15:04:05"),
+						Ip:     conn.RemoteAddr().String(),
+						UserID: user.ID,
+					}
+					db.Create(&msgObj)
+					conn.Write([]byte("Сообщение сохранено\n"))
+				}
 			}
 			conn.Write([]byte(msg + " from server\n"))
-
 		}
 
 		fmt.Printf("%s Send message to client: %s from server\n", time.Now().Format("15:04"), msg)
