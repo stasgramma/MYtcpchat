@@ -161,6 +161,8 @@ func main() {
 		fmt.Println("Ошибка запуска сервера:", err)
 		return
 	}
+	fmt.Printf("Сервер запустился\n")
+
 	defer listener.Close()
 
 	for {
