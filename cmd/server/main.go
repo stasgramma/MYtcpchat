@@ -80,28 +80,42 @@ func handleConnection(conn net.Conn) {
 			conn.Write([]byte(fmt.Sprintf("%d\n", sum)))
 
 		case "/setname":
+			if len(words) < 3 {
+				conn.Write([]byte("Использование: /setname <username> <password>\n"))
+				break
+			}
 			username := words[1]
+			password := words[2]
 
 			var existing db.User
 			if err := db.DB.Where("username = ?", username).First(&existing).Error; err == nil {
 				conn.Write([]byte("Пользователь уже существует\n"))
-				return
+				break
 			}
 
-			newUser := db.User{Username: username}
+			newUser := db.User{Username: username, Password: password}
 			db.DB.Create(&newUser)
 			currentUser = username
 			conn.Write([]byte("Создан новый пользователь: " + username + "\n"))
 
 		case "/connect":
+			if len(words) < 3 {
+				conn.Write([]byte("Использование: /connect <username> <password>\n"))
+				break
+			}
 			username := words[1]
+			password := words[2]
 
 			var user db.User
 			if err := db.DB.Where("username = ?", username).First(&user).Error; err != nil {
-				conn.Write([]byte("Пользователь не найден. Сначала создайте через setname\n"))
+				conn.Write([]byte("Пользователь не найден. Сначала создайте через /setname\n"))
 			} else {
-				currentUser = username
-				conn.Write([]byte("Вы подключились как " + username + "\n"))
+				if user.Password != password {
+					conn.Write([]byte("Неверный пароль\n"))
+				} else {
+					currentUser = username
+					conn.Write([]byte("Вы успешно вошли как " + username + "\n"))
+				}
 			}
 
 		default:
